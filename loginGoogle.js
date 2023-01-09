@@ -61,7 +61,8 @@ export const loginGoogle = async (
     const alertSelector =
       "div[role='alertdialog'] div[role='button'][aria-label]";
 
-    const googleClassInviteSelector = "table[role='grid'] tr:nth-child(1)";
+    const googleClassInviteSelector =
+      "table[role='grid'] tr td.yX.xY div.yW span[data-hovercard-id='no-reply@classroom.google.com']";
     const newAccountSelector = "form#tos_form";
     let tries = 0;
     let previousStep = "";
@@ -211,6 +212,89 @@ export const loginGoogle = async (
           //   }
           // }
           return { success: true, reason: "" };
+
+        default:
+          break;
+      }
+
+      if (tries > 10) {
+        return { success: false, reason: "Max tries reach" };
+      }
+      await page.waitForFunction(
+        (currentURL) => window.location.href !== currentURL,
+        {},
+        currentURL
+      );
+    } while (true);
+  } catch (error) {
+    console.error(`Error when google: ${error.message}`);
+    return { success: false, reason: error.message };
+  }
+};
+
+export const acceptGoogleClassroom = async (browser, page) => {
+  try {
+    const googleClassInviteSelector =
+      "table[role='grid'] tr td.yX.xY div.yW span[data-hovercard-id='no-reply@classroom.google.com']";
+    const headerTextMailSelector = "div[role='main'] h2";
+    let tries = 0;
+    let previousStep = "";
+
+    do {
+      tries += 1;
+      const currentURL = await page.url();
+      // console.log('currentURL: ', currentURL)
+      const promises = [
+        checkSelectorPage(page, googleClassInviteSelector),
+        checkSelectorPage(page, headerTextMailSelector),
+        isLoggedIn(page, gmail.trim().toLowerCase()),
+      ];
+
+      await page.waitForTimeout(random(5, 30) * 100);
+
+      const result = await Promise.any(promises);
+      console.log("result: ", await result);
+      if (result == previousStep) {
+        await page.waitForTimeout(random(5, 50) * 100);
+        continue;
+      }
+      previousStep = result;
+
+      switch (result) {
+        case googleClassInviteSelector:
+          await page.locator(googleClassInviteSelector).click();
+          break;
+
+        case headerTextMailSelector:
+          const isDialog = await page.$(
+            "div[role='dialog'] button[aria-label]"
+          );
+          if (isDialog) {
+            await page.locator("div[role='dialog'] button[aria-label]").click();
+          }
+          await page.waitForTimeout(random(1, 2) * 1000);
+          const [newPage] = await Promise.all([
+            browser.waitForEvent("page"),
+            page
+              .getByRole("link", { name: "Tham gia" })
+              .click()
+              .catch((e) => log.error(e)),
+          ]);
+
+          if (newPage) {
+            await newPage.waitForTimeout(random(5, 30) * 100);
+            await newPage.bringToFront();
+            const newURL = await newPage.url();
+            console.log(
+              "🚀 ~ file: loginGoogle.js:172 ~ loginGoogle ~ newURL",
+              newURL
+            );
+            if (newURL.includes("classroom.google.com")) {
+              await newPage.waitForTimeout(random(1, 2) * 1000);
+              await browser.close();
+            }
+          }
+          await browser.close();
 
         default:
           break;

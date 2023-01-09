@@ -3,7 +3,7 @@ import { parse } from "csv-parse";
 import { initialize } from "./browser.js";
 import { loginClassroomMSchool } from "./loginMsSchool.js";
 import pkg from "lodash";
-import { loginGoogle } from "./loginGoogle.js";
+import { acceptGoogleClassroom, loginGoogle } from "./loginGoogle.js";
 const { chunk, random } = pkg;
 process.setMaxListeners(0);
 const formatRow = (row) => {
@@ -46,6 +46,18 @@ async function main() {
         }
       }
       //do something with csvData
+      const user = {
+        gmail: "Test809@mschool.vn",
+        password: "mschool.vn",
+        name: "Test809 mschool",
+      };
+      const browser = await initialize(false, "", user, 0);
+      const page = await browser.newPage();
+      const result = await loginGoogle(browser, page, user);
+      if (result && result.success) {
+        console.log("Yo");
+        await acceptGoogleClassroom(browser, page);
+      }
 
       // for (const user of runningGroups[0]) {
       //   const browser = await initialize(false, "", user,0);
@@ -61,19 +73,19 @@ async function main() {
       //     })
       //   );
       // }
-      for (const group of runningGroups) {
-        await Promise.all(
-          group.map(async (user, index) => {
-            const browser = await initialize(false, "", user, index);
-            const page = await browser.newPage();
-            const res = await loginGoogle(browser,page,user)
-            if (res && res.success) {
-              await browser.close();
-            }
-            await wait(200);
-          })
-        );
-      }
+      // for (const group of runningGroups) {
+      //   await Promise.all(
+      //     group.map(async (user, index) => {
+      //       const browser = await initialize(false, "", user, index);
+      //       const page = await browser.newPage();
+      //       const res = await loginGoogle(browser,page,user)
+      //       if (res && res.success) {
+      //         await browser.close();
+      //       }
+      //       await wait(200);
+      //     })
+      //   );
+      // }
       // await Promise.all(
       //   runningGroups.map(async (group, index) => {
       //     await wait(index * 200);
