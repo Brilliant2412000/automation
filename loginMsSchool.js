@@ -40,6 +40,16 @@ const chooseAccessInformation = async (page) => {
     }
   }
 };
+const checkIsLoginPage = async (page) => {
+  const accessToken = await page.evaluate(() =>
+    localStorage.getItem("accessToken")
+  );
+  if (!accessToken) {
+    return "loginPage";
+  } else {
+    return "loggedIn";
+  }
+};
 
 const selectAccount = async (page, gmail) => {
   const selector = `div[data-identifier="${gmail.toLowerCase()}"]`;
@@ -51,7 +61,11 @@ const selectAccount = async (page, gmail) => {
   }
   return "accountSelected";
 };
-export const loginClassroomMSchool = async (page, { gmail, password }) => {
+export const loginClassroomMSchool = async (
+  browser,
+  page,
+  { gmail, password }
+) => {
   if (!(gmail && password)) {
     return {
       success: false,
@@ -59,7 +73,6 @@ export const loginClassroomMSchool = async (page, { gmail, password }) => {
     };
   }
   try {
-    console.log("Go to login page");
     await page.goto("https://classroom.mschool.vn", {
       waitUntil: "load",
     });
@@ -68,30 +81,29 @@ export const loginClassroomMSchool = async (page, { gmail, password }) => {
 
     const emailInputSelector =
       'input#identifierId[type="email"][name="identifier"]';
-    const accountSelector = `div[data-identifier="${gmail
-      .trim()
-      .toLowerCase()}"]`;
+    const accountSelector = `div[data-identifier="${gmail.toLowerCase()}"]`;
     const chooseAccessSelector =
       "text=mschool.vn muốn truy cập vào Tài khoản Google của bạn";
     const acceptAccessSelector = "text=mschool.vn đã có một số quyền truy cập";
     const passwordInputSelector = 'input[type="password"]';
     const newAccountSelector = "text=Chào mừng bạn đến với tài khoản mới";
+    const phoneRequireSelector = "input#phoneNumberId";
     let tries = 0;
     let previousStep = "";
-
     do {
       tries += 1;
       const currentURL = await page.url();
       // console.log('currentURL: ', currentURL)
       const promises = [
-        isLoggedIn(page),
         checkSelectorPage(page, accountSelector),
         checkSelectorPage(page, chooseAccessSelector),
         checkSelectorPage(page, acceptAccessSelector),
         checkSelectorPage(page, newAccountSelector),
         checkSelectorPage(page, passwordInputSelector),
+        checkSelectorPage(page, phoneRequireSelector),
         checkSelectorPage(page, emailInputSelector),
-        checkSelectorPage(page, loginBtnSelector),
+        checkIsLoginPage(page),
+        isLoggedIn(page),
       ];
 
       await page.waitForTimeout(random(5, 30) * 100);
@@ -109,7 +121,7 @@ export const loginClassroomMSchool = async (page, { gmail, password }) => {
       previousStep = result;
 
       switch (result) {
-        case loginBtnSelector:
+        case "loginPage":
           await page.locator(loginBtnSelector).click();
           break;
 
@@ -163,7 +175,8 @@ export const loginClassroomMSchool = async (page, { gmail, password }) => {
           break;
 
         case accountSelector:
-          await selectAccount(page, gmail);
+          await page.locator(accountSelector).click();
+          await page.waitForTimeout(random(1, 2) * 1000);
           break;
 
         case chooseAccessSelector:
@@ -179,13 +192,19 @@ export const loginClassroomMSchool = async (page, { gmail, password }) => {
           await page.waitForTimeout(random(3, 5) * 1000);
           break;
 
+        case phoneRequireSelector:
+          return { success: false, reason: "need phone" };
+
         case newAccountSelector:
           await page.locator("input#confirm").click({ delay: 55 });
           await page.waitForTimeout(random(0, 1) * 200);
           break;
 
         case "loggedIn":
-          return { success: true, reason: "" };
+          const accessToken = await page.evaluate(() =>
+            localStorage.getItem("accessToken")
+          );
+          return { success: true, reason: "", accessToken, gmail };
 
         default:
           break;
